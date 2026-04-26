@@ -1,5 +1,6 @@
 USE mediavault;
 
+-- This patch adds IMDb identifiers to the media/contributors tables, allowing us to link our data with IMDb's extensive database for enrichment and cross-referencing.
 ALTER TABLE media
   ADD COLUMN imdb_title_id VARCHAR(20) NULL AFTER media_id,
   ADD CONSTRAINT uq_media_imdb_title_id UNIQUE (imdb_title_id);

@@ -55,9 +55,13 @@
 
             <label>
               <span>Genre</span>
-              <select id="genre-select" name="genre">
-                <option value="">All genres</option>
-              </select>
+              <div id="genre-dropdown" class="genre-dropdown">
+                <button type="button" id="genre-dropdown-toggle" class="genre-dropdown-toggle" aria-expanded="false">
+                  <span id="genre-dropdown-label">All genres</span>
+                  <span id="genre-dropdown-badge" class="genre-dropdown-badge hidden">0</span>
+                </button>
+                <div id="genre-dropdown-menu" class="genre-dropdown-menu"></div>
+              </div>
             </label>
 
             <label>

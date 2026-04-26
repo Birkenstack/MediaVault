@@ -8,7 +8,11 @@ const state = {
 const elements = {
   filtersForm: document.getElementById('filters-form'),
   resetButton: document.getElementById('reset-button'),
-  genreSelect: document.getElementById('genre-select'),
+  genreDropdown: document.getElementById('genre-dropdown'),
+  genreDropdownToggle: document.getElementById('genre-dropdown-toggle'),
+  genreDropdownMenu: document.getElementById('genre-dropdown-menu'),
+  genreDropdownLabel: document.getElementById('genre-dropdown-label'),
+  genreDropdownBadge: document.getElementById('genre-dropdown-badge'),
   mediaGrid: document.getElementById('media-grid'),
   loadingState: document.getElementById('loading-state'),
   errorState: document.getElementById('error-state'),
@@ -68,7 +72,7 @@ function buildQueryString() {
   for (const [key, rawValue] of formData.entries()) {
     const value = String(rawValue).trim();
     if (value) {
-      params.set(key, value);
+      params.append(key, value);
     }
   }
 
@@ -76,17 +80,59 @@ function buildQueryString() {
   return params.toString();
 }
 
+function updateGenreDropdownLabel() {
+  const selected = Array.from(elements.filtersForm.querySelectorAll('input[name="genre"]:checked'));
+
+  if (selected.length === 0) {
+    elements.genreDropdownLabel.textContent = 'All genres';
+    elements.genreDropdownBadge.classList.add('hidden');
+    return;
+  }
+
+  if (selected.length === 1) {
+    elements.genreDropdownLabel.textContent = selected[0].value;
+  } else {
+    elements.genreDropdownLabel.textContent = selected.length + ' genres selected';
+  }
+
+  elements.genreDropdownBadge.textContent = String(selected.length);
+  elements.genreDropdownBadge.classList.remove('hidden');
+}
+
+function closeGenreDropdown() {
+  elements.genreDropdownMenu.classList.remove('open');
+  elements.genreDropdownToggle.setAttribute('aria-expanded', 'false');
+}
+
+function toggleGenreDropdown() {
+  const isOpen = !elements.genreDropdownMenu.classList.contains('open');
+  elements.genreDropdownMenu.classList.toggle('open', isOpen);
+  elements.genreDropdownToggle.setAttribute('aria-expanded', String(isOpen));
+}
+
 function renderGenreOptions() {
-  elements.genreSelect.innerHTML = '<option value="">All genres</option>';
+  elements.genreDropdownMenu.innerHTML = '';
 
   for (const genre of state.genres) {
-    const option = document.createElement('option');
-    option.value = genre.genre_name;
-    option.textContent = genre.genre_name;
-    elements.genreSelect.appendChild(option);
+    const wrapper = document.createElement('label');
+    wrapper.className = 'genre-checkbox-option';
+
+    const checkbox = document.createElement('input');
+    checkbox.type = 'checkbox';
+    checkbox.name = 'genre';
+    checkbox.value = genre.genre_name;
+    checkbox.addEventListener('change', updateGenreDropdownLabel);
+
+    const labelText = document.createElement('span');
+    labelText.textContent = genre.genre_name;
+
+    wrapper.appendChild(checkbox);
+    wrapper.appendChild(labelText);
+    elements.genreDropdownMenu.appendChild(wrapper);
   }
 
   elements.statGenreCount.textContent = String(state.genres.length);
+  updateGenreDropdownLabel();
 }
 
 function renderMediaCards() {
@@ -245,6 +291,23 @@ elements.filtersForm.addEventListener('submit', function (event) {
 });
 
 elements.resetButton.addEventListener('click', resetFilters);
+
+elements.genreDropdownToggle.addEventListener('click', function () {
+  toggleGenreDropdown();
+});
+
+elements.filtersForm.addEventListener('reset', function () {
+  setTimeout(function () {
+    updateGenreDropdownLabel();
+    closeGenreDropdown();
+  }, 0);
+});
+
+document.addEventListener('click', function (event) {
+  if (elements.genreDropdown && !elements.genreDropdown.contains(event.target)) {
+    closeGenreDropdown();
+  }
+});
 
 elements.refreshContributors.addEventListener('click', loadContributors);
 

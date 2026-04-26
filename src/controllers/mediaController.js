@@ -41,9 +41,13 @@ async function listMedia(req, res) {
     params.push(String(type).toUpperCase());
   }
 
-  if (genre) {
-    whereClauses.push('g.genre_name = ?');
-    params.push(genre);
+  const genres = Array.isArray(genre) ? genre : (genre ? [genre] : []);
+
+  if (genres.length > 0) {
+    whereClauses.push(
+      'g.genre_name IN (' + genres.map(() => '?').join(',') + ')'
+    );
+    params.push(...genres);
   }
 
   if (contributor) {

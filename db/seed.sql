@@ -1,5 +1,6 @@
 USE mediavault;
 
+-- Clear existing data while respecting foreign key constraints
 SET FOREIGN_KEY_CHECKS = 0;
 TRUNCATE TABLE user_favorite;
 TRUNCATE TABLE user_rating;
@@ -14,6 +15,7 @@ TRUNCATE TABLE genres;
 TRUNCATE TABLE media;
 SET FOREIGN_KEY_CHECKS = 1;
 
+-- Seed contributor roles
 INSERT INTO contributor_roles (role_name) VALUES
   ('Actor'),
   ('Director'),
@@ -21,6 +23,7 @@ INSERT INTO contributor_roles (role_name) VALUES
   ('Producer'),
   ('Composer');
 
+-- Seed genres
 INSERT INTO genres (genre_name) VALUES
   ('Action'),
   ('Drama'),
@@ -29,14 +32,18 @@ INSERT INTO genres (genre_name) VALUES
   ('Comedy'),
   ('Fantasy'),
   ('Crime'),
-  ('Adventure');
+  ('Adventure'),
+  ('Horror'),
+  ('Romance');
 
+-- Seed users
 INSERT INTO users (username, email, display_name) VALUES
   ('alex01', 'alex@example.com', 'Alex Carter'),
   ('mia02', 'mia@example.com', 'Mia Lopez'),
   ('noah03', 'noah@example.com', 'Noah Patel'),
   ('zoe04', 'zoe@example.com', 'Zoe Kim');
 
+-- Seed contributors
 INSERT INTO contributors (full_name, birth_date, country_of_origin) VALUES
   ('Christopher Nolan', '1970-07-30', 'United Kingdom'),
   ('Denis Villeneuve', '1967-10-03', 'Canada'),
@@ -51,6 +58,7 @@ INSERT INTO contributors (full_name, birth_date, country_of_origin) VALUES
   ('Craig Mazin', '1971-04-08', 'United States'),
   ('Bella Ramsey', '2003-09-30', 'United Kingdom');
 
+-- Seed media, movies, TV shows, genres, contributor credits, user ratings, and favorites
 INSERT INTO media (
   title,
   media_type,
@@ -72,6 +80,7 @@ INSERT INTO media (
   ('Wednesday', 'TV_SHOW', 'Wednesday Addams investigates mysteries at Nevermore Academy.', '2022-11-23', 'English', 'TV-14', 72.0, 81.0),
   ('The Bear', 'TV_SHOW', 'A chef returns home to rebuild a chaotic family restaurant.', '2022-06-23', 'English', 'TV-MA', 95.0, 88.0);
 
+-- The media_id values in the following inserts correspond to the auto-incremented IDs of the media entries above.
 INSERT INTO movie (media_id, runtime_minutes, box_office_usd) VALUES
   (1, 148, 839000000.00),
   (2, 169, 701000000.00),
@@ -79,6 +88,7 @@ INSERT INTO movie (media_id, runtime_minutes, box_office_usd) VALUES
   (4, 180, 976000000.00),
   (5, 114, 1445000000.00);
 
+-- The media_id values in the following inserts correspond to the auto-incremented IDs of the media entries above.
 INSERT INTO tv_show (media_id, total_seasons, total_episodes, end_date, current_status) VALUES
   (6, 2, 16, NULL, 'RUNNING'),
   (7, 1, 7, '2020-10-23', 'MINISERIES'),
@@ -86,18 +96,21 @@ INSERT INTO tv_show (media_id, total_seasons, total_episodes, end_date, current_
   (9, 1, 8, NULL, 'RUNNING'),
   (10, 3, 28, NULL, 'RUNNING');
 
+-- The media_id and genre_id values in the following inserts correspond to the auto-incremented IDs of the media and genres entries above.
 INSERT INTO media_genre (media_id, genre_id) VALUES
-  (1, 1), (1, 3), (1, 4),
+  (1, 1), (1, 3), (1, 4), (1, 9),
   (2, 2), (2, 3), (2, 8),
   (3, 1), (3, 3), (3, 8),
   (4, 2), (4, 4),
-  (5, 5), (5, 6), (5, 8),
+  (5, 5), (5, 6), (5, 8), (5, 10),
   (6, 1), (6, 2),
   (7, 2),
   (8, 2), (8, 4), (8, 7),
   (9, 5), (9, 6),
   (10, 2), (10, 5);
 
+
+-- The media_id, contributor_id, and role_id values in the following inserts correspond to the auto-incremented IDs of the media, contributors, and contributor_roles entries above.
 INSERT INTO media_contributor_credit (
   media_id,
   contributor_id,
@@ -127,6 +140,8 @@ INSERT INTO media_contributor_credit (
   (9, 8, 1, NULL, 'Anya Taylor-Joy', 3),
   (10, 6, 1, NULL, 'Florence Pugh', 4);
 
+
+-- The user_id and media_id values in the following inserts correspond to the auto-incremented IDs of the users and media entries above.
 INSERT INTO user_rating (user_id, media_id, rating_value, review_text, rated_at) VALUES
   (1, 1, 9.5, 'Inventive and rewarding on rewatch.', '2026-03-10 19:15:00'),
   (1, 3, 8.8, 'Huge scale and strong world building.', '2026-03-12 20:10:00'),
@@ -141,6 +156,8 @@ INSERT INTO user_rating (user_id, media_id, rating_value, review_text, rated_at)
   (4, 7, 9.3, 'One of the strongest limited series I have seen.', '2026-03-16 22:15:00'),
   (4, 10, 8.9, 'Fast, tense, and character-driven.', '2026-03-21 19:50:00');
 
+
+-- The user_id and media_id values in the following inserts correspond to the auto-incremented IDs of the users and media entries above.
 INSERT INTO user_favorite (user_id, media_id, favorited_at) VALUES
   (1, 1, '2026-03-10 19:20:00'),
   (1, 6, '2026-03-18 21:10:00'),

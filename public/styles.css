@@ -186,6 +186,69 @@ select {
   color: var(--ink);
 }
 
+.genre-dropdown {
+  position: relative;
+  width: 100%;
+}
+
+.genre-dropdown-toggle {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  padding: 13px 14px;
+  border: 1px solid rgba(60, 45, 30, 0.16);
+  border-radius: var(--radius-sm);
+  background: rgba(255, 255, 255, 0.92);
+  color: var(--ink);
+  text-align: left;
+  cursor: pointer;
+}
+
+.genre-dropdown-menu {
+  position: absolute;
+  left: 0;
+  right: 0;
+  margin-top: 8px;
+  max-height: 240px;
+  overflow: auto;
+  padding: 12px 12px 10px;
+  border-radius: var(--radius-sm);
+  border: 1px solid rgba(60, 45, 30, 0.16);
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: 0 16px 32px rgba(60, 45, 30, 0.08);
+  display: none;
+  z-index: 2;
+}
+
+.genre-dropdown-menu.open {
+  display: block;
+}
+
+.genre-checkbox-option {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 0;
+}
+
+.genre-dropdown-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 30px;
+  padding: 0 8px;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  color: #fff;
+  background: var(--accent);
+}
+
+.hidden {
+  display: none;
+}
+
 input:focus,
 select:focus,
 button:focus {

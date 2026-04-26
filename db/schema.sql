@@ -1,9 +1,11 @@
+-- first create the database if it doesn't already exist.
 CREATE DATABASE IF NOT EXISTS mediavault
   CHARACTER SET utf8mb4
   COLLATE utf8mb4_unicode_ci;
 
 USE mediavault;
 
+-- This table holds user accounts for the app
 CREATE TABLE users (
   user_id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
   username VARCHAR(50) NOT NULL,
@@ -15,6 +17,7 @@ CREATE TABLE users (
   CONSTRAINT chk_users_username_len CHECK (CHAR_LENGTH(username) BETWEEN 3 AND 50)
 ) ENGINE=InnoDB;
 
+-- This is the table for storing media information
 CREATE TABLE media (
   media_id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
   title VARCHAR(255) NOT NULL,
@@ -37,6 +40,7 @@ CREATE TABLE media (
   )
 ) ENGINE=InnoDB;
 
+-- This table holds movie-specific information, linked to the media table
 CREATE TABLE movie (
   media_id BIGINT UNSIGNED PRIMARY KEY,
   runtime_minutes SMALLINT UNSIGNED NOT NULL,
@@ -49,6 +53,7 @@ CREATE TABLE movie (
   CONSTRAINT chk_movie_box_office CHECK (box_office_usd IS NULL OR box_office_usd >= 0)
 ) ENGINE=InnoDB;
 
+-- This table holds TV show-specific information, linked to the media table
 CREATE TABLE tv_show (
   media_id BIGINT UNSIGNED PRIMARY KEY,
   total_seasons SMALLINT UNSIGNED NOT NULL DEFAULT 1,
@@ -64,12 +69,14 @@ CREATE TABLE tv_show (
   CONSTRAINT chk_tv_show_end_date CHECK (end_date IS NULL OR end_date >= '1888-01-01')
 ) ENGINE=InnoDB;
 
+-- This table holds genre information
 CREATE TABLE genres (
   genre_id TINYINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
   genre_name VARCHAR(50) NOT NULL,
   CONSTRAINT uq_genres_name UNIQUE (genre_name)
 ) ENGINE=InnoDB;
 
+-- This is a junction table to represent the many-to-many relationship between media and genres
 CREATE TABLE media_genre (
   media_id BIGINT UNSIGNED NOT NULL,
   genre_id TINYINT UNSIGNED NOT NULL,
@@ -84,6 +91,7 @@ CREATE TABLE media_genre (
     ON UPDATE CASCADE
 ) ENGINE=InnoDB;
 
+-- This table holds information about contributors (actors, directors, writers, etc.)
 CREATE TABLE contributors (
   contributor_id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
   full_name VARCHAR(150) NOT NULL,
@@ -93,12 +101,14 @@ CREATE TABLE contributors (
   CONSTRAINT uq_contributor_identity UNIQUE (full_name, birth_date)
 ) ENGINE=InnoDB;
 
+-- This table defines the different roles a contributor can have (e.g., Actor, Director, Writer)
 CREATE TABLE contributor_roles (
   role_id TINYINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
   role_name VARCHAR(50) NOT NULL,
   CONSTRAINT uq_contributor_roles_name UNIQUE (role_name)
 ) ENGINE=InnoDB;
 
+-- This is a junction table to represent the many-to-many relationship between media, contributors, and their roles in that media.
 CREATE TABLE media_contributor_credit (
   credit_id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
   media_id BIGINT UNSIGNED NOT NULL,
@@ -127,6 +137,7 @@ CREATE TABLE media_contributor_credit (
   )
 ) ENGINE=InnoDB;
 
+-- This table allows users to rate media and optionally leave a review.
 CREATE TABLE user_rating (
   user_id BIGINT UNSIGNED NOT NULL,
   media_id BIGINT UNSIGNED NOT NULL,
@@ -145,6 +156,7 @@ CREATE TABLE user_rating (
   CONSTRAINT chk_user_rating_value CHECK (rating_value BETWEEN 0 AND 10)
 ) ENGINE=InnoDB;
 
+-- This table allows users to mark media as favorites.
 CREATE TABLE user_favorite (
   user_id BIGINT UNSIGNED NOT NULL,
   media_id BIGINT UNSIGNED NOT NULL,
@@ -160,6 +172,7 @@ CREATE TABLE user_favorite (
     ON UPDATE CASCADE
 ) ENGINE=InnoDB;
 
+-- Create indexes to optimize common queries
 CREATE INDEX idx_media_title ON media (title);
 CREATE INDEX idx_media_type_release ON media (media_type, release_date);
 CREATE INDEX idx_contributors_full_name ON contributors (full_name);
@@ -167,6 +180,7 @@ CREATE INDEX idx_credit_media_role ON media_contributor_credit (media_id, role_i
 CREATE INDEX idx_credit_contributor_role ON media_contributor_credit (contributor_id, role_id);
 CREATE INDEX idx_user_rating_media_value ON user_rating (media_id, rating_value);
 
+-- Insert initial data into the contributor_roles table
 INSERT IGNORE INTO contributor_roles (role_name) VALUES
   ('Actor'),
   ('Director'),
@@ -174,6 +188,7 @@ INSERT IGNORE INTO contributor_roles (role_name) VALUES
   ('Producer'),
   ('Composer');
 
+-- Insert initial data into the genres table
 CREATE OR REPLACE VIEW vw_media_catalog AS
 SELECT
   m.media_id,
@@ -212,6 +227,7 @@ GROUP BY
   tv.total_episodes,
   tv.current_status;
 
+-- This view aggregates media information along with its genres for easier querying in the application.
 CREATE OR REPLACE VIEW vw_contributor_footprint AS
 SELECT
   c.contributor_id,

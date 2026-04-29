@@ -112,6 +112,11 @@
             <div id="loading-state" class="status-message">Loading data from the API...</div>
             <div id="error-state" class="status-message error hidden"></div>
             <div id="media-grid" class="media-grid"></div>
+            <div id="pagination-controls" class="pagination-controls hidden">
+              <button id="previous-page-button" class="button secondary compact" type="button">Previous</button>
+              <p id="pagination-summary" class="pagination-summary">Page 1</p>
+              <button id="next-page-button" class="button secondary compact" type="button">Next</button>
+            </div>
           </section>
 
           <section class="panel contributors-panel">
@@ -126,17 +131,24 @@
           </section>
         </section>
 
-        <aside class="panel detail-panel">
-          <div class="panel-header">
-            <p class="panel-kicker">Selected Title</p>
-            <h2>Media Details</h2>
-          </div>
-          <div id="detail-empty" class="status-message detail-empty">
-            Select a movie or TV show to inspect genres, contributor credits, and user rating data.
-          </div>
-          <div id="detail-content" class="detail-content hidden"></div>
-        </aside>
       </main>
+    </div>
+
+    <div id="details-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+      <div class="modal-backdrop" data-close-modal="true"></div>
+      <div class="modal-shell" role="document">
+        <div class="modal-header">
+          <div>
+            <p class="panel-kicker">Selected Title</p>
+            <h2 id="modal-title">Media Details</h2>
+          </div>
+          <button id="modal-close-button" class="modal-close-button" type="button" aria-label="Close details modal">Close</button>
+        </div>
+        <div id="detail-empty" class="status-message detail-empty">
+          Loading title details...
+        </div>
+        <div id="detail-content" class="detail-content hidden"></div>
+      </div>
     </div>
 
     <template id="media-card-template">

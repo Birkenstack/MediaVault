@@ -22,6 +22,12 @@ Supported query parameters:
 - limit: max rows returned
 - offset: pagination offset
 
+Response pagination fields:
+- total: total matching titles before limit/offset
+- limit: max rows returned
+- offset: pagination offset used for the current page
+- hasMore: whether another page of results exists
+
 Example:
 GET /api/media?type=MOVIE&genre=Science%20Fiction&minCriticScore=85
 

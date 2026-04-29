@@ -23,6 +23,7 @@ This project was designed to satisfy the major requirements of a database system
 
 - browse movies and TV shows
 - filter by media type, genre, title text, and score
+- move through paginated catalog results with shareable URL-backed filters
 - inspect detailed contributor relationships for each title
 - view ratings and favorites data
 - use SQL views for simplified data retrieval

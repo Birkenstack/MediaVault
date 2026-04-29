@@ -116,7 +116,21 @@ async function listMedia(req, res) {
     '\nORDER BY ' + orderColumn + ' ' + orderDirection + ', m.title ASC' +
     '\nLIMIT ? OFFSET ?;';
 
-  const [rows] = await pool.query(sql, params.concat([safeLimit, safeOffset]));
+  const countSql = [
+    'SELECT COUNT(DISTINCT m.media_id) AS total',
+    'FROM media AS m',
+    'LEFT JOIN media_genre AS mg ON mg.media_id = m.media_id',
+    'LEFT JOIN genres AS g ON g.genre_id = mg.genre_id',
+    'LEFT JOIN media_contributor_credit AS mcc ON mcc.media_id = m.media_id',
+    'LEFT JOIN contributors AS c ON c.contributor_id = mcc.contributor_id',
+    whereSql + ';'
+  ].filter(Boolean).join('\n');
+
+  const [[countRows], [rows]] = await Promise.all([
+    pool.query(countSql, params),
+    pool.query(sql, params.concat([safeLimit, safeOffset]))
+  ]);
+  const total = countRows[0].total;
 
   res.json({
     filters: {
@@ -128,8 +142,10 @@ async function listMedia(req, res) {
       minAudienceScore: minAudienceScore || null
     },
     pagination: {
+      total,
       limit: safeLimit,
-      offset: safeOffset
+      offset: safeOffset,
+      hasMore: safeOffset + rows.length < total
     },
     data: rows
   });

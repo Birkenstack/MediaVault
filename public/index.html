@@ -103,8 +103,8 @@
           <section class="panel results-panel">
             <div class="panel-header split">
               <div>
-                <p class="panel-kicker">Live Results</p>
-                <h2>Catalog Browser</h2>
+                <p class="panel-kicker">Browse</p>
+                <h2>Browse</h2>
               </div>
               <p id="results-summary" class="results-summary">Loading catalog...</p>
             </div>
@@ -122,8 +122,8 @@
           <section class="panel contributors-panel">
             <div class="panel-header split">
               <div>
-                <p class="panel-kicker">Cross-Domain Analysis</p>
-                <h2>Featured Contributors</h2>
+                <p class="panel-kicker">Contributors</p>
+                <h2>Contributors</h2>
               </div>
               <button id="refresh-contributors" class="button secondary compact" type="button">Refresh</button>
             </div>
@@ -148,6 +148,23 @@
           Loading title details...
         </div>
         <div id="detail-content" class="detail-content hidden"></div>
+      </div>
+    </div>
+
+    <div id="contributor-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="contributor-modal-title">
+      <div class="modal-backdrop" data-close-contributor-modal="true"></div>
+      <div class="modal-shell" role="document">
+        <div class="modal-header">
+          <div>
+            <p class="panel-kicker">Contributor Profile</p>
+            <h2 id="contributor-modal-title">Contributor Details</h2>
+          </div>
+          <button id="contributor-modal-close-button" class="modal-close-button" type="button" aria-label="Close contributor modal">Close</button>
+        </div>
+        <div id="contributor-detail-empty" class="status-message detail-empty">
+          Loading contributor profile...
+        </div>
+        <div id="contributor-detail-content" class="detail-content hidden"></div>
       </div>
     </div>
 

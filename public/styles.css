@@ -299,6 +299,11 @@ button:focus {
   width: 100%;
 }
 
+.button.contributor-profile-button {
+  color: #fff7ef;
+  background: linear-gradient(135deg, var(--accent), #da6b45);
+}
+
 .results-panel,
 .contributors-panel {
   overflow: hidden;
@@ -405,6 +410,11 @@ button:focus {
   background: rgba(255, 255, 255, 0.72);
 }
 
+.contributor-item {
+  display: grid;
+  gap: 12px;
+}
+
 .contributor-item strong,
 .detail-title {
   font-family: var(--font-display);
@@ -445,6 +455,34 @@ button:focus {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
+}
+
+.related-media-grid {
+  display: grid;
+  gap: 12px;
+}
+
+.related-media-card {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  padding: 16px 18px;
+  border: 1px solid rgba(60, 45, 30, 0.1);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.72);
+}
+
+.related-media-meta {
+  margin: 0 0 6px;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.related-media-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 1.2rem;
 }
 
 .detail-metric {
@@ -567,6 +605,11 @@ button:focus {
 
   .pagination-controls {
     flex-direction: column;
+  }
+
+  .related-media-card {
+    flex-direction: column;
+    align-items: stretch;
   }
 
   .modal {

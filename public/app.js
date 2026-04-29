@@ -28,6 +28,10 @@ const elements = {
   modalCloseButton: document.getElementById('modal-close-button'),
   detailEmpty: document.getElementById('detail-empty'),
   detailContent: document.getElementById('detail-content'),
+  contributorModal: document.getElementById('contributor-modal'),
+  contributorModalCloseButton: document.getElementById('contributor-modal-close-button'),
+  contributorDetailEmpty: document.getElementById('contributor-detail-empty'),
+  contributorDetailContent: document.getElementById('contributor-detail-content'),
   resultsSummary: document.getElementById('results-summary'),
   paginationControls: document.getElementById('pagination-controls'),
   paginationSummary: document.getElementById('pagination-summary'),
@@ -269,7 +273,11 @@ function renderContributors() {
     item.innerHTML =
       '<strong>' + escapeHtml(contributor.full_name) + '</strong>' +
       '<p class="contributor-meta">' + escapeHtml(contributor.role_name) + ' • ' + escapeHtml(contributor.total_media_credits) + ' credited titles</p>' +
-      '<p class="contributor-meta">' + escapeHtml(contributor.country_of_origin || 'Country unknown') + '</p>';
+      '<p class="contributor-meta">' + escapeHtml(contributor.country_of_origin || 'Country unknown') + '</p>' +
+      '<button class="button secondary full-width contributor-profile-button" type="button">View Profile</button>';
+    item.querySelector('.contributor-profile-button').addEventListener('click', function (event) {
+      loadContributorDetails(contributor.contributor_id, event.currentTarget);
+    });
     fragment.appendChild(item);
   });
 
@@ -320,16 +328,39 @@ function renderMediaDetail(item) {
 
 function openDetailsModal(triggerElement) {
   state.lastFocusedTrigger = triggerElement || document.activeElement;
+  closeContributorModal(true);
   elements.detailsModal.classList.remove('hidden');
   document.body.classList.add('modal-open');
   elements.modalCloseButton.focus();
 }
 
-function closeDetailsModal() {
+function closeDetailsModal(shouldKeepFocus) {
   elements.detailsModal.classList.add('hidden');
-  document.body.classList.remove('modal-open');
+  if (elements.contributorModal.classList.contains('hidden')) {
+    document.body.classList.remove('modal-open');
+  }
 
-  if (state.lastFocusedTrigger && typeof state.lastFocusedTrigger.focus === 'function') {
+  if (!shouldKeepFocus && state.lastFocusedTrigger && typeof state.lastFocusedTrigger.focus === 'function') {
+    state.lastFocusedTrigger.focus();
+  }
+}
+
+function openContributorModal(triggerElement) {
+  state.lastFocusedTrigger = triggerElement || document.activeElement;
+  closeDetailsModal(true);
+  elements.contributorModal.classList.remove('hidden');
+  document.body.classList.add('modal-open');
+  elements.contributorModalCloseButton.focus();
+}
+
+function closeContributorModal(shouldKeepFocus) {
+  elements.contributorModal.classList.add('hidden');
+
+  if (elements.detailsModal.classList.contains('hidden')) {
+    document.body.classList.remove('modal-open');
+  }
+
+  if (!shouldKeepFocus && state.lastFocusedTrigger && typeof state.lastFocusedTrigger.focus === 'function') {
     state.lastFocusedTrigger.focus();
   }
 }
@@ -346,6 +377,70 @@ function showDetailError() {
   elements.detailEmpty.classList.remove('hidden');
   elements.detailContent.classList.add('hidden');
   elements.detailContent.innerHTML = '';
+}
+
+function showContributorLoading() {
+  elements.contributorDetailEmpty.textContent = 'Loading contributor profile...';
+  elements.contributorDetailEmpty.classList.remove('hidden');
+  elements.contributorDetailContent.classList.add('hidden');
+  elements.contributorDetailContent.innerHTML = '';
+}
+
+function showContributorError() {
+  elements.contributorDetailEmpty.textContent = 'Could not load the selected contributor.';
+  elements.contributorDetailEmpty.classList.remove('hidden');
+  elements.contributorDetailContent.classList.add('hidden');
+  elements.contributorDetailContent.innerHTML = '';
+}
+
+function renderContributorDetail(contributor) {
+  const roles = contributor.roles
+    .map(function (role) {
+      return '<span class="genre-chip">' + escapeHtml(role.role_name + ': ' + role.title_count + ' titles') + '</span>';
+    })
+    .join('');
+
+  const credits = contributor.credits
+    .map(function (credit) {
+      const meta = [
+        formatMediaType(credit.media_type),
+        formatYear(credit.release_date),
+        credit.role_name + (credit.character_name ? ' • ' + credit.character_name : '')
+      ].join(' • ');
+
+      return (
+        '<article class="related-media-card">' +
+          '<div>' +
+            '<p class="related-media-meta">' + escapeHtml(meta) + '</p>' +
+            '<h3 class="related-media-title">' + escapeHtml(credit.title) + '</h3>' +
+          '</div>' +
+          '<button class="button primary compact related-media-button" type="button" data-media-id="' + escapeHtml(credit.media_id) + '">Open Title</button>' +
+        '</article>'
+      );
+    })
+    .join('');
+
+  elements.contributorDetailContent.innerHTML =
+    '<div class="detail-top">' +
+      '<div class="detail-pills">' +
+        '<span class="pill">' + escapeHtml(contributor.country_of_origin || 'Country unknown') + '</span>' +
+        '<span class="pill">' + escapeHtml(contributor.total_media_credits) + ' titles</span>' +
+      '</div>' +
+      '<h3 class="detail-title">' + escapeHtml(contributor.full_name) + '</h3>' +
+      '<p class="detail-copy">Browse role distribution and credited MediaVault projects for this contributor.</p>' +
+    '</div>' +
+    '<section class="detail-section"><p class="score-label">Role Breakdown</p><div class="genre-chip-row">' + (roles || '<span class="detail-meta">No roles</span>') + '</div></section>' +
+    '<section class="detail-section"><p class="score-label">Related Titles</p><div class="related-media-grid">' + (credits || '<span class="detail-meta">No credited titles</span>') + '</div></section>';
+
+  elements.contributorDetailEmpty.classList.add('hidden');
+  elements.contributorDetailContent.classList.remove('hidden');
+
+  Array.from(elements.contributorDetailContent.querySelectorAll('.related-media-button')).forEach(function (button) {
+    button.addEventListener('click', function (event) {
+      const mediaId = Number.parseInt(event.currentTarget.dataset.mediaId, 10);
+      loadMediaDetails(mediaId, event.currentTarget);
+    });
+  });
 }
 
 async function loadGenres() {
@@ -393,6 +488,18 @@ async function loadMediaDetails(mediaId, triggerElement) {
     renderMediaDetail(payload.data);
   } catch (error) {
     showDetailError();
+  }
+}
+
+async function loadContributorDetails(contributorId, triggerElement) {
+  showContributorLoading();
+  openContributorModal(triggerElement);
+
+  try {
+    const payload = await apiFetch('/api/contributors/' + contributorId);
+    renderContributorDetail(payload.data);
+  } catch (error) {
+    showContributorError();
   }
 }
 
@@ -478,9 +585,19 @@ elements.detailsModal.addEventListener('click', function (event) {
     closeDetailsModal();
   }
 });
+elements.contributorModalCloseButton.addEventListener('click', function () {
+  closeContributorModal();
+});
+elements.contributorModal.addEventListener('click', function (event) {
+  if (event.target.dataset.closeContributorModal === 'true') {
+    closeContributorModal();
+  }
+});
 document.addEventListener('keydown', function (event) {
   if (event.key === 'Escape' && !elements.detailsModal.classList.contains('hidden')) {
     closeDetailsModal();
+  } else if (event.key === 'Escape' && !elements.contributorModal.classList.contains('hidden')) {
+    closeContributorModal();
   }
 });
 

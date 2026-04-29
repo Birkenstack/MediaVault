@@ -25,6 +25,58 @@ function parseUserId(req) {
   return parsePositiveInt(req.query.userId || (req.body && req.body.userId), 1);
 }
 
+function normalizeMediaType(value) {
+  const s = String(value || '').toUpperCase();
+  if (s === 'MOVIE' || s === 'TV_SHOW') {
+    return s;
+  }
+  return null;
+}
+
+function parseMediaIdParam(req) {
+  const mediaId = Number.parseInt(req.params.id, 10);
+  if (!Number.isInteger(mediaId) || mediaId <= 0) {
+    return null;
+  }
+  return mediaId;
+}
+
+async function resolveGenreIds(connection, genreNames) {
+  const ids = [];
+  for (const raw of genreNames) {
+    const name = String(raw || '').trim();
+    if (!name) {
+      continue;
+    }
+    await connection.query(
+      'INSERT IGNORE INTO genres (genre_name) VALUES (?);',
+      [name]
+    );
+    const [rows] = await connection.query(
+      'SELECT genre_id FROM genres WHERE genre_name = ? LIMIT 1;',
+      [name]
+    );
+    if (rows.length > 0) {
+      ids.push(rows[0].genre_id);
+    }
+  }
+  return ids;
+}
+
+async function setMediaGenres(connection, mediaId, genreNames) {
+  await connection.query('DELETE FROM media_genre WHERE media_id = ?;', [mediaId]);
+  if (!Array.isArray(genreNames) || genreNames.length === 0) {
+    return;
+  }
+  const genreIds = await resolveGenreIds(connection, genreNames);
+  for (const genreId of genreIds) {
+    await connection.query(
+      'INSERT IGNORE INTO media_genre (media_id, genre_id) VALUES (?, ?);',
+      [mediaId, genreId]
+    );
+  }
+}
+
 function buildMediaFilters(query) {
   const type = query.type;
   const genre = query.genre;
@@ -310,10 +362,365 @@ async function removeFavorite(req, res) {
   });
 }
 
+async function createMedia(req, res) {
+  const body = req.body || {};
+  const mediaType = normalizeMediaType(body.mediaType || body.media_type);
+  const title = String(body.title || '').trim();
+  const releaseDate = body.releaseDate || body.release_date;
+  const originalLanguage = String(body.originalLanguage || body.original_language || '').trim();
+
+  if (!title || !mediaType || !releaseDate || !originalLanguage) {
+    return res.status(400).json({
+      error: 'Missing required fields: title, mediaType (MOVIE | TV_SHOW), releaseDate, originalLanguage.'
+    });
+  }
+
+  const synopsis = body.synopsis != null ? String(body.synopsis) : null;
+  const ageCertification =
+    body.ageCertification != null || body.age_certification != null
+      ? String(body.ageCertification || body.age_certification)
+      : null;
+  const averageCriticScore =
+    body.averageCriticScore != null || body.average_critic_score != null
+      ? body.averageCriticScore ?? body.average_critic_score
+      : null;
+  const averageAudienceScore =
+    body.averageAudienceScore != null || body.average_audience_score != null
+      ? body.averageAudienceScore ?? body.average_audience_score
+      : null;
+
+  const genreNames = body.genres || body.genreNames;
+
+  const connection = await pool.getConnection();
+  try {
+    await connection.beginTransaction();
+
+    const [mediaResult] = await connection.query(
+      'INSERT INTO media (' +
+        'title, media_type, synopsis, release_date, original_language, ' +
+        'age_certification, average_critic_score, average_audience_score' +
+        ') VALUES (?, ?, ?, ?, ?, ?, ?, ?);',
+      [
+        title,
+        mediaType,
+        synopsis,
+        releaseDate,
+        originalLanguage,
+        ageCertification || null,
+        averageCriticScore != null && averageCriticScore !== '' ? Number(averageCriticScore) : null,
+        averageAudienceScore != null && averageAudienceScore !== ''
+          ? Number(averageAudienceScore)
+          : null
+      ]
+    );
+
+    const mediaId = mediaResult.insertId;
+
+    if (mediaType === 'MOVIE') {
+      const runtime =
+        body.runtimeMinutes != null || body.runtime_minutes != null
+          ? Number(body.runtimeMinutes ?? body.runtime_minutes)
+          : NaN;
+      if (!Number.isFinite(runtime)) {
+        await connection.rollback();
+        return res.status(400).json({ error: 'Movies require runtimeMinutes (40–600).' });
+      }
+      const boxOffice =
+        body.boxOfficeUsd != null || body.box_office_usd != null
+          ? body.boxOfficeUsd ?? body.box_office_usd
+          : null;
+      await connection.query(
+        'INSERT INTO movie (media_id, runtime_minutes, box_office_usd) VALUES (?, ?, ?);',
+        [mediaId, runtime, boxOffice != null && boxOffice !== '' ? Number(boxOffice) : null]
+      );
+    } else {
+      const currentStatus = String(
+        body.currentStatus || body.current_status || ''
+      ).toUpperCase();
+      const allowedStatus = new Set([
+        'RUNNING',
+        'ENDED',
+        'CANCELLED',
+        'MINISERIES',
+        'IN_PRODUCTION'
+      ]);
+      if (!allowedStatus.has(currentStatus)) {
+        await connection.rollback();
+        return res.status(400).json({
+          error:
+            'TV shows require currentStatus: RUNNING | ENDED | CANCELLED | MINISERIES | IN_PRODUCTION.'
+        });
+      }
+      const totalSeasons = parsePositiveInt(body.totalSeasons ?? body.total_seasons, 1);
+      const totalEpisodes =
+        body.totalEpisodes != null || body.total_episodes != null
+          ? body.totalEpisodes ?? body.total_episodes
+          : null;
+      const endDate = body.endDate || body.end_date || null;
+      await connection.query(
+        'INSERT INTO tv_show (' +
+          'media_id, total_seasons, total_episodes, end_date, current_status' +
+          ') VALUES (?, ?, ?, ?, ?);',
+        [
+          mediaId,
+          totalSeasons,
+          totalEpisodes != null && totalEpisodes !== '' ? Number(totalEpisodes) : null,
+          endDate,
+          currentStatus
+        ]
+      );
+    }
+
+    if (Array.isArray(genreNames) && genreNames.length > 0) {
+      await setMediaGenres(connection, mediaId, genreNames);
+    }
+
+    await connection.commit();
+    return res.status(201).json({
+      data: { media_id: mediaId }
+    });
+  } catch (err) {
+    await connection.rollback();
+    if (err.code === 'ER_DUP_ENTRY') {
+      return res.status(409).json({
+        error: 'A title with this type and release date already exists.'
+      });
+    }
+    throw err;
+  } finally {
+    connection.release();
+  }
+}
+
+async function updateMedia(req, res) {
+  const mediaId = parseMediaIdParam(req);
+  if (mediaId == null) {
+    return res.status(400).json({ error: 'Invalid media id.' });
+  }
+
+  const body = req.body || {};
+  const connection = await pool.getConnection();
+  try {
+    await connection.beginTransaction();
+
+    const [existing] = await connection.query(
+      'SELECT media_id, media_type, title, release_date FROM media WHERE media_id = ? FOR UPDATE;',
+      [mediaId]
+    );
+    if (existing.length === 0) {
+      await connection.rollback();
+      return res.status(404).json({ error: 'Media not found.' });
+    }
+
+    const row = existing[0];
+    const patches = [];
+    const values = [];
+
+    if (body.title != null) {
+      patches.push('title = ?');
+      values.push(String(body.title).trim());
+    }
+    if (body.synopsis !== undefined) {
+      patches.push('synopsis = ?');
+      values.push(body.synopsis == null ? null : String(body.synopsis));
+    }
+    if (body.releaseDate != null || body.release_date != null) {
+      patches.push('release_date = ?');
+      values.push(body.releaseDate || body.release_date);
+    }
+    if (body.originalLanguage != null || body.original_language != null) {
+      patches.push('original_language = ?');
+      values.push(String(body.originalLanguage || body.original_language).trim());
+    }
+    if (body.ageCertification !== undefined || body.age_certification !== undefined) {
+      patches.push('age_certification = ?');
+      values.push(
+        body.ageCertification != null || body.age_certification != null
+          ? String(body.ageCertification || body.age_certification)
+          : null
+      );
+    }
+    if (body.averageCriticScore !== undefined || body.average_critic_score !== undefined) {
+      patches.push('average_critic_score = ?');
+      const v = body.averageCriticScore ?? body.average_critic_score;
+      values.push(v == null || v === '' ? null : Number(v));
+    }
+    if (body.averageAudienceScore !== undefined || body.average_audience_score !== undefined) {
+      patches.push('average_audience_score = ?');
+      const v = body.averageAudienceScore ?? body.average_audience_score;
+      values.push(v == null || v === '' ? null : Number(v));
+    }
+
+    if (patches.length > 0) {
+      values.push(mediaId);
+      await connection.query(
+        'UPDATE media SET ' + patches.join(', ') + ' WHERE media_id = ?;',
+        values
+      );
+    }
+
+    if (row.media_type === 'MOVIE') {
+      const moviePatches = [];
+      const movieValues = [];
+      if (body.runtimeMinutes != null || body.runtime_minutes != null) {
+        moviePatches.push('runtime_minutes = ?');
+        movieValues.push(Number(body.runtimeMinutes ?? body.runtime_minutes));
+      }
+      if (body.boxOfficeUsd !== undefined || body.box_office_usd !== undefined) {
+        moviePatches.push('box_office_usd = ?');
+        const v = body.boxOfficeUsd ?? body.box_office_usd;
+        movieValues.push(v == null || v === '' ? null : Number(v));
+      }
+      if (moviePatches.length > 0) {
+        movieValues.push(mediaId);
+        await connection.query(
+          'UPDATE movie SET ' + moviePatches.join(', ') + ' WHERE media_id = ?;',
+          movieValues
+        );
+      }
+    } else {
+      const tvPatches = [];
+      const tvValues = [];
+      if (body.totalSeasons != null || body.total_seasons != null) {
+        tvPatches.push('total_seasons = ?');
+        tvValues.push(Number(body.totalSeasons ?? body.total_seasons));
+      }
+      if (body.totalEpisodes !== undefined || body.total_episodes !== undefined) {
+        tvPatches.push('total_episodes = ?');
+        const v = body.totalEpisodes ?? body.total_episodes;
+        tvValues.push(v == null || v === '' ? null : Number(v));
+      }
+      if (body.endDate !== undefined || body.end_date !== undefined) {
+        tvPatches.push('end_date = ?');
+        tvValues.push(body.endDate ?? body.end_date ?? null);
+      }
+      if (body.currentStatus != null || body.current_status != null) {
+        tvPatches.push('current_status = ?');
+        tvValues.push(
+          String(body.currentStatus || body.current_status).toUpperCase()
+        );
+      }
+      if (tvPatches.length > 0) {
+        tvValues.push(mediaId);
+        await connection.query(
+          'UPDATE tv_show SET ' + tvPatches.join(', ') + ' WHERE media_id = ?;',
+          tvValues
+        );
+      }
+    }
+
+    if (body.genres !== undefined || body.genreNames !== undefined) {
+      const genreList = body.genres ?? body.genreNames;
+      await setMediaGenres(connection, mediaId, Array.isArray(genreList) ? genreList : []);
+    }
+
+    await connection.commit();
+    return res.json({ data: { media_id: mediaId, updated: true } });
+  } catch (err) {
+    await connection.rollback();
+    if (err.code === 'ER_DUP_ENTRY') {
+      return res.status(409).json({
+        error: 'A title with this type and release date already exists.'
+      });
+    }
+    throw err;
+  } finally {
+    connection.release();
+  }
+}
+
+async function deleteMedia(req, res) {
+  const mediaId = parseMediaIdParam(req);
+  if (mediaId == null) {
+    return res.status(400).json({ error: 'Invalid media id.' });
+  }
+
+  const [result] = await pool.query('DELETE FROM media WHERE media_id = ?;', [mediaId]);
+  if (result.affectedRows === 0) {
+    return res.status(404).json({ error: 'Media not found.' });
+  }
+  return res.json({ data: { media_id: mediaId, deleted: true } });
+}
+
+async function upsertRating(req, res) {
+  const mediaId = parseMediaIdParam(req);
+  const userId = parseUserId(req);
+  if (mediaId == null) {
+    return res.status(400).json({ error: 'Invalid media id.' });
+  }
+
+  const body = req.body || {};
+  const ratingRaw = body.ratingValue ?? body.rating_value ?? body.rating;
+  const ratingValue = Number(ratingRaw);
+  if (!Number.isFinite(ratingValue) || ratingValue < 0 || ratingValue > 10) {
+    return res.status(400).json({ error: 'ratingValue is required (0–10).' });
+  }
+  const reviewText =
+    body.reviewText !== undefined || body.review_text !== undefined
+      ? body.reviewText ?? body.review_text
+      : null;
+
+  const [mediaRows] = await pool.query(
+    'SELECT media_id FROM media WHERE media_id = ? LIMIT 1;',
+    [mediaId]
+  );
+  if (mediaRows.length === 0) {
+    return res.status(404).json({ error: 'Media not found.' });
+  }
+
+  try {
+    await pool.query(
+      'INSERT INTO user_rating (user_id, media_id, rating_value, review_text) ' +
+        'VALUES (?, ?, ?, ?) ' +
+        'ON DUPLICATE KEY UPDATE rating_value = VALUES(rating_value), ' +
+        'review_text = VALUES(review_text);',
+      [userId, mediaId, ratingValue, reviewText == null ? null : String(reviewText)]
+    );
+  } catch (err) {
+    if (err.code === 'ER_NO_REFERENCED_ROW_2' || err.errno === 1452) {
+      return res.status(400).json({ error: 'Invalid user id.' });
+    }
+    throw err;
+  }
+
+  return res.status(200).json({
+    data: {
+      user_id: userId,
+      media_id: mediaId,
+      rating_value: ratingValue,
+      review_text: reviewText == null ? null : String(reviewText)
+    }
+  });
+}
+
+async function removeRating(req, res) {
+  const mediaId = parseMediaIdParam(req);
+  const userId = parseUserId(req);
+  if (mediaId == null) {
+    return res.status(400).json({ error: 'Invalid media id.' });
+  }
+
+  const [result] = await pool.query(
+    'DELETE FROM user_rating WHERE user_id = ? AND media_id = ?;',
+    [userId, mediaId]
+  );
+  if (result.affectedRows === 0) {
+    return res.status(404).json({ error: 'Rating not found for this user and media.' });
+  }
+  return res.json({
+    data: { user_id: userId, media_id: mediaId, deleted: true }
+  });
+}
+
 module.exports = {
   listMedia,
   getMediaById,
   listFavorites,
   addFavorite,
-  removeFavorite
+  removeFavorite,
+  createMedia,
+  updateMedia,
+  deleteMedia,
+  upsertRating,
+  removeRating
 };

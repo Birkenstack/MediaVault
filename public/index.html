@@ -115,7 +115,10 @@
                 <p class="panel-kicker">Live Results</p>
                 <h2>Catalog Browser</h2>
               </div>
-              <p id="results-summary" class="results-summary">Loading catalog...</p>
+              <div class="panel-header-actions">
+                <button type="button" id="open-add-media" class="button secondary compact">Add title</button>
+                <p id="results-summary" class="results-summary">Loading catalog...</p>
+              </div>
             </div>
 
             <div id="loading-state" class="status-message">Loading data from the API...</div>
@@ -187,6 +190,85 @@
         </button>
       </article>
     </template>
+
+    <div id="modal-root" class="modal-root hidden" aria-hidden="true">
+      <div class="modal-backdrop" id="modal-backdrop"></div>
+      <div class="modal-dialog" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+        <div class="modal-header">
+          <h3 id="modal-title">Add title</h3>
+          <button type="button" id="modal-close" class="modal-close" aria-label="Close">×</button>
+        </div>
+        <form id="media-crud-form" class="crud-form">
+          <input type="hidden" id="crud-media-id" name="mediaId" value="" />
+          <label>
+            <span>Media type</span>
+            <select id="crud-media-type" name="mediaType" required>
+              <option value="MOVIE">Movie</option>
+              <option value="TV_SHOW">TV show</option>
+            </select>
+          </label>
+          <label>
+            <span>Title</span>
+            <input id="crud-title" name="title" type="text" required maxlength="255" />
+          </label>
+          <label>
+            <span>Release date</span>
+            <input id="crud-release-date" name="releaseDate" type="date" required />
+          </label>
+          <label>
+            <span>Original language</span>
+            <input id="crud-language" name="originalLanguage" type="text" required placeholder="e.g. en" />
+          </label>
+          <label>
+            <span>Genres (comma-separated)</span>
+            <input id="crud-genres" name="genres" type="text" placeholder="Drama, Comedy" />
+          </label>
+          <label>
+            <span>Synopsis (optional)</span>
+            <textarea id="crud-synopsis" name="synopsis" rows="3" placeholder="Short description"></textarea>
+          </label>
+          <div id="crud-movie-fields" class="crud-type-fields">
+            <label>
+              <span>Runtime (minutes)</span>
+              <input id="crud-runtime" name="runtimeMinutes" type="number" min="40" max="600" step="1" />
+            </label>
+            <label>
+              <span>Box office USD (optional)</span>
+              <input id="crud-box-office" name="boxOfficeUsd" type="number" min="0" step="0.01" />
+            </label>
+          </div>
+          <div id="crud-tv-fields" class="crud-type-fields hidden">
+            <label>
+              <span>Status</span>
+              <select id="crud-tv-status" name="currentStatus">
+                <option value="RUNNING">Running</option>
+                <option value="ENDED">Ended</option>
+                <option value="CANCELLED">Cancelled</option>
+                <option value="MINISERIES">Miniseries</option>
+                <option value="IN_PRODUCTION">In production</option>
+              </select>
+            </label>
+            <label>
+              <span>Total seasons</span>
+              <input id="crud-tv-seasons" name="totalSeasons" type="number" min="1" step="1" value="1" />
+            </label>
+            <label>
+              <span>Total episodes (optional)</span>
+              <input id="crud-tv-episodes" name="totalEpisodes" type="number" min="0" step="1" />
+            </label>
+            <label>
+              <span>End date (optional)</span>
+              <input id="crud-tv-end" name="endDate" type="date" />
+            </label>
+          </div>
+          <p id="crud-form-error" class="crud-form-error hidden" role="alert"></p>
+          <div class="button-row">
+            <button type="submit" class="button primary" id="crud-submit">Save</button>
+            <button type="button" class="button secondary" id="crud-cancel">Cancel</button>
+          </div>
+        </form>
+      </div>
+    </div>
 
     <script src="/app.js" defer></script>
   </body>

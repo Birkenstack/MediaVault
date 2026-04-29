@@ -5,6 +5,8 @@ const state = {
   contributors: [],
   favorites: [],
   selectedMediaId: null,
+  detailData: null,
+  crudMode: 'add',
   page: 1,
   pagination: {
     total: 0,
@@ -36,15 +38,40 @@ const elements = {
   statMediaCount: document.getElementById('stat-media-count'),
   statGenreCount: document.getElementById('stat-genre-count'),
   refreshContributors: document.getElementById('refresh-contributors'),
-  mediaCardTemplate: document.getElementById('media-card-template')
+  mediaCardTemplate: document.getElementById('media-card-template'),
+  openAddMedia: document.getElementById('open-add-media'),
+  modalRoot: document.getElementById('modal-root'),
+  modalBackdrop: document.getElementById('modal-backdrop'),
+  modalClose: document.getElementById('modal-close'),
+  modalTitle: document.getElementById('modal-title'),
+  mediaCrudForm: document.getElementById('media-crud-form'),
+  crudCancel: document.getElementById('crud-cancel'),
+  crudFormError: document.getElementById('crud-form-error'),
+  crudMediaId: document.getElementById('crud-media-id'),
+  crudMediaType: document.getElementById('crud-media-type'),
+  crudMovieFields: document.getElementById('crud-movie-fields'),
+  crudTvFields: document.getElementById('crud-tv-fields'),
+  crudRuntime: document.getElementById('crud-runtime')
 };
 
 async function apiFetch(path, options) {
   const response = await fetch(path, options);
-  if (!response.ok) {
-    throw new Error('Request failed with status ' + response.status);
+  const text = await response.text();
+  let data = {};
+  if (text) {
+    try {
+      data = JSON.parse(text);
+    } catch (e) {
+      data = {};
+    }
   }
-  return response.json();
+  if (!response.ok) {
+    const message = data.error || 'Request failed with status ' + response.status;
+    const err = new Error(message);
+    err.status = response.status;
+    throw err;
+  }
+  return data;
 }
 
 function escapeHtml(value) {
@@ -76,6 +103,85 @@ function formatMediaType(value) {
 
 function formatYear(dateString) {
   return dateString ? new Date(dateString).getFullYear() : 'Unknown';
+}
+
+function toInputDate(dateString) {
+  if (!dateString) {
+    return '';
+  }
+  const s = String(dateString);
+  return s.length >= 10 ? s.slice(0, 10) : s;
+}
+
+function parseGenresInput(value) {
+  return String(value || '')
+    .split(',')
+    .map(function (s) { return s.trim(); })
+    .filter(Boolean);
+}
+
+function toggleCrudSubtypeFields() {
+  const type = elements.crudMediaType.value;
+  const isMovie = type === 'MOVIE';
+  elements.crudMovieFields.classList.toggle('hidden', !isMovie);
+  elements.crudTvFields.classList.toggle('hidden', !isMovie);
+  elements.crudRuntime.required = state.crudMode === 'add' && isMovie;
+}
+
+function setCrudFormError(message) {
+  const has = Boolean(message);
+  elements.crudFormError.textContent = message || '';
+  elements.crudFormError.classList.toggle('hidden', !has);
+}
+
+function openMediaModal(mode) {
+  state.crudMode = mode;
+  elements.modalRoot.classList.remove('hidden');
+  elements.modalRoot.setAttribute('aria-hidden', 'false');
+  setCrudFormError('');
+  elements.crudMediaType.disabled = mode === 'edit';
+  toggleCrudSubtypeFields();
+
+  if (mode === 'add') {
+    elements.modalTitle.textContent = 'Add title';
+    elements.mediaCrudForm.reset();
+    elements.crudMediaId.value = '';
+    elements.crudMediaType.disabled = false;
+    toggleCrudSubtypeFields();
+  } else if (state.detailData) {
+    const d = state.detailData;
+    elements.modalTitle.textContent = 'Edit title';
+    elements.crudMediaId.value = String(d.media_id);
+    elements.crudMediaType.value = d.media_type;
+    document.getElementById('crud-title').value = d.title || '';
+    document.getElementById('crud-release-date').value = toInputDate(d.release_date);
+    document.getElementById('crud-language').value = d.original_language || '';
+    document.getElementById('crud-genres').value = (d.genres || [])
+      .map(function (g) { return g.genre_name; })
+      .join(', ');
+    document.getElementById('crud-synopsis').value = d.synopsis || '';
+    if (d.media_type === 'MOVIE') {
+      elements.crudRuntime.value = d.runtime_minutes != null ? String(d.runtime_minutes) : '';
+      document.getElementById('crud-box-office').value =
+        d.box_office_usd != null ? String(d.box_office_usd) : '';
+    } else {
+      document.getElementById('crud-tv-status').value = d.current_status || 'RUNNING';
+      document.getElementById('crud-tv-seasons').value =
+        d.total_seasons != null ? String(d.total_seasons) : '1';
+      document.getElementById('crud-tv-episodes').value =
+        d.total_episodes != null ? String(d.total_episodes) : '';
+      document.getElementById('crud-tv-end').value = toInputDate(d.end_date);
+    }
+    toggleCrudSubtypeFields();
+  }
+
+  document.getElementById('crud-title').focus();
+}
+
+function closeMediaModal() {
+  elements.modalRoot.classList.add('hidden');
+  elements.modalRoot.setAttribute('aria-hidden', 'true');
+  setCrudFormError('');
 }
 
 function isFavoritedValue(value) {
@@ -318,7 +424,11 @@ function renderMediaDetail(item) {
       '</div>' +
       '<h3 class="detail-title">' + escapeHtml(item.title) + '</h3>' +
       '<p class="detail-copy">' + escapeHtml(item.synopsis || 'No synopsis available.') + '</p>' +
-      '<button id="detail-star-button" class="favorite-star-button' + (isFavoritedValue(item.is_favorited) ? ' favorited' : '') + '" type="button" aria-label="Toggle favorite"><span class="star-glyph">' + (isFavoritedValue(item.is_favorited) ? '★' : '☆') + '</span></button>' +
+      '<div class="detail-toolbar">' +
+        '<button id="detail-star-button" class="favorite-star-button' + (isFavoritedValue(item.is_favorited) ? ' favorited' : '') + '" type="button" aria-label="Toggle favorite"><span class="star-glyph">' + (isFavoritedValue(item.is_favorited) ? '★' : '☆') + '</span></button>' +
+        '<button type="button" id="detail-edit-button" class="button secondary compact">Edit</button>' +
+        '<button type="button" id="detail-delete-button" class="button danger compact">Delete</button>' +
+      '</div>' +
     '</div>' +
     '<div class="detail-grid">' +
       '<div class="detail-metric"><span class="score-label">Critic Score</span><strong>' + escapeHtml(formatScore(item.average_critic_score)) + '</strong></div>' +
@@ -328,7 +438,20 @@ function renderMediaDetail(item) {
       subtypeMeta +
     '</div>' +
     '<section class="detail-section"><p class="score-label">Genres</p><div class="genre-chip-row">' + (genres || '<span class="detail-meta">No genres</span>') + '</div></section>' +
-    '<section class="detail-section"><p class="score-label">Contributor Credits</p><div class="credit-list">' + (contributors || '<span class="detail-meta">No credits</span>') + '</div></section>';
+    '<section class="detail-section"><p class="score-label">Contributor Credits</p><div class="credit-list">' + (contributors || '<span class="detail-meta">No credits</span>') + '</div></section>' +
+    '<div class="detail-rating-box">' +
+      '<p class="score-label">Your rating</p>' +
+      '<form id="rating-form">' +
+        '<div class="rating-row">' +
+          '<label><span>Score (0–10)</span><input id="rating-value" name="ratingValue" type="number" min="0" max="10" step="0.1" required placeholder="e.g. 8.5" /></label>' +
+          '<label><span>Review (optional)</span><textarea id="rating-review" name="reviewText" rows="2" placeholder="Short note"></textarea></label>' +
+        '</div>' +
+        '<div class="button-row">' +
+          '<button type="submit" class="button primary">Save rating</button>' +
+          '<button type="button" id="rating-remove" class="button secondary">Remove my rating</button>' +
+        '</div>' +
+      '</form>' +
+    '</div>';
 
   elements.detailEmpty.classList.add('hidden');
   elements.detailContent.classList.remove('hidden');
@@ -336,6 +459,12 @@ function renderMediaDetail(item) {
   detailStarButton.addEventListener('click', async function () {
     await setFavorite(item.media_id, !isFavoritedValue(item.is_favorited));
   });
+  document.getElementById('detail-edit-button').addEventListener('click', function () {
+    openMediaModal('edit');
+  });
+  document.getElementById('detail-delete-button').addEventListener('click', deleteSelectedMedia);
+  document.getElementById('rating-form').addEventListener('submit', submitRatingForm);
+  document.getElementById('rating-remove').addEventListener('click', removeMyRating);
 }
 
 async function loadGenres() {
@@ -382,13 +511,159 @@ async function loadFavorites() {
   }
 }
 
+function showDetailEmpty() {
+  state.selectedMediaId = null;
+  state.detailData = null;
+  elements.detailEmpty.classList.remove('hidden');
+  elements.detailContent.classList.add('hidden');
+}
+
 async function loadMediaDetails(mediaId) {
   state.selectedMediaId = mediaId;
   try {
     const payload = await apiFetch('/api/media/' + mediaId + '?userId=' + currentUserId);
+    state.detailData = payload.data;
     renderMediaDetail(payload.data);
+    setError('');
   } catch (error) {
     setError('Could not load the selected media details.');
+  }
+}
+
+async function deleteSelectedMedia() {
+  if (!state.detailData) {
+    return;
+  }
+  const title = state.detailData.title || 'this title';
+  if (!window.confirm('Delete “' + title + '” from the catalog? Related credits and ratings will be removed.')) {
+    return;
+  }
+  const id = state.detailData.media_id;
+  try {
+    await apiFetch('/api/media/' + id, { method: 'DELETE' });
+    showDetailEmpty();
+    setError('');
+    await loadMedia();
+    await loadFavorites();
+  } catch (error) {
+    setError(error.message);
+  }
+}
+
+function buildMediaPayloadFromCrudForm(isPatch) {
+  const type = elements.crudMediaType.value;
+  const title = document.getElementById('crud-title').value.trim();
+  const releaseDate = document.getElementById('crud-release-date').value;
+  const originalLanguage = document.getElementById('crud-language').value.trim();
+  const synopsisRaw = document.getElementById('crud-synopsis').value.trim();
+  const genres = parseGenresInput(document.getElementById('crud-genres').value);
+
+  const body = {
+    title: title,
+    mediaType: type,
+    releaseDate: releaseDate,
+    originalLanguage: originalLanguage,
+    synopsis: synopsisRaw || null
+  };
+
+  if (genres.length > 0 || isPatch) {
+    body.genres = genres;
+  }
+
+  if (type === 'MOVIE') {
+    const runtime = Number(document.getElementById('crud-runtime').value);
+    body.runtimeMinutes = runtime;
+    const boxRaw = document.getElementById('crud-box-office').value.trim();
+    if (boxRaw !== '') {
+      body.boxOfficeUsd = Number(boxRaw);
+    } else if (isPatch) {
+      body.boxOfficeUsd = null;
+    }
+  } else {
+    body.currentStatus = document.getElementById('crud-tv-status').value;
+    body.totalSeasons = Number(document.getElementById('crud-tv-seasons').value) || 1;
+    const epRaw = document.getElementById('crud-tv-episodes').value.trim();
+    body.totalEpisodes = epRaw === '' ? null : Number(epRaw);
+    const endRaw = document.getElementById('crud-tv-end').value;
+    body.endDate = endRaw || null;
+  }
+
+  return body;
+}
+
+async function submitMediaCrudForm(event) {
+  event.preventDefault();
+  setCrudFormError('');
+  try {
+    if (state.crudMode === 'add') {
+      const body = buildMediaPayloadFromCrudForm(false);
+      const payload = await apiFetch('/api/media', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      });
+      closeMediaModal();
+      await loadMedia();
+      if (payload.data && payload.data.media_id) {
+        await loadMediaDetails(payload.data.media_id);
+      }
+    } else {
+      const id = elements.crudMediaId.value;
+      const body = buildMediaPayloadFromCrudForm(true);
+      delete body.mediaType;
+      await apiFetch('/api/media/' + id, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      });
+      closeMediaModal();
+      await loadMedia();
+      await loadMediaDetails(Number(id));
+    }
+  } catch (error) {
+    setCrudFormError(error.message);
+  }
+}
+
+async function submitRatingForm(event) {
+  event.preventDefault();
+  if (!state.detailData) {
+    return;
+  }
+  const mediaId = state.detailData.media_id;
+  const ratingValue = Number(document.getElementById('rating-value').value);
+  const reviewText = document.getElementById('rating-review').value.trim();
+  try {
+    await apiFetch('/api/media/' + mediaId + '/rating?userId=' + currentUserId, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        ratingValue: ratingValue,
+        reviewText: reviewText || null
+      })
+    });
+    setError('');
+    await loadMediaDetails(mediaId);
+  } catch (error) {
+    setError(error.message);
+  }
+}
+
+async function removeMyRating() {
+  if (!state.detailData) {
+    return;
+  }
+  const mediaId = state.detailData.media_id;
+  try {
+    await apiFetch('/api/media/' + mediaId + '/rating?userId=' + currentUserId, {
+      method: 'DELETE'
+    });
+    document.getElementById('rating-value').value = '';
+    document.getElementById('rating-review').value = '';
+    setError('');
+    await loadMediaDetails(mediaId);
+  } catch (error) {
+    setError(error.message);
   }
 }
 
@@ -468,6 +743,21 @@ document.addEventListener('click', function (event) {
 });
 
 elements.refreshContributors.addEventListener('click', loadContributors);
+
+elements.openAddMedia.addEventListener('click', function () {
+  openMediaModal('add');
+});
+elements.mediaCrudForm.addEventListener('submit', submitMediaCrudForm);
+elements.crudCancel.addEventListener('click', closeMediaModal);
+elements.modalClose.addEventListener('click', closeMediaModal);
+elements.modalBackdrop.addEventListener('click', closeMediaModal);
+elements.crudMediaType.addEventListener('change', toggleCrudSubtypeFields);
+
+document.addEventListener('keydown', function (event) {
+  if (event.key === 'Escape' && !elements.modalRoot.classList.contains('hidden')) {
+    closeMediaModal();
+  }
+});
 
 syncStateFromUrl();
 initializeApp();

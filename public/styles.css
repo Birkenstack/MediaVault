@@ -156,6 +156,18 @@ select {
   gap: 12px;
 }
 
+.panel-header-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+}
+
+.panel-header-actions .results-summary {
+  margin: 0;
+  text-align: right;
+}
+
 .panel-header h2 {
   font-size: 1.7rem;
 }
@@ -284,6 +296,11 @@ button:focus {
 .button.secondary {
   color: var(--ink);
   background: rgba(29, 92, 99, 0.12);
+}
+
+.button.danger {
+  color: #fff7ef;
+  background: linear-gradient(135deg, #8f2f20, #b84c2a);
 }
 
 .button.compact {
@@ -467,6 +484,137 @@ button:focus {
   gap: 10px;
 }
 
+.detail-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  margin-top: 8px;
+}
+
+.detail-rating-box {
+  margin-top: 12px;
+  padding: 16px 18px;
+  border-radius: 18px;
+  border: 1px solid rgba(60, 45, 30, 0.1);
+  background: rgba(255, 255, 255, 0.72);
+  display: grid;
+  gap: 12px;
+}
+
+.detail-rating-box .rating-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.detail-rating-box label {
+  display: grid;
+  gap: 6px;
+}
+
+.detail-rating-box span {
+  font-family: var(--font-display);
+  font-size: 0.86rem;
+  color: var(--muted);
+}
+
+textarea {
+  width: 100%;
+  padding: 13px 14px;
+  border: 1px solid rgba(60, 45, 30, 0.16);
+  border-radius: var(--radius-sm);
+  background: rgba(255, 255, 255, 0.92);
+  color: var(--ink);
+  font: inherit;
+  resize: vertical;
+  min-height: 80px;
+}
+
+.modal-root {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.modal-root.hidden {
+  display: none;
+}
+
+.modal-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(31, 27, 24, 0.45);
+  backdrop-filter: blur(4px);
+}
+
+.modal-dialog {
+  position: relative;
+  width: min(480px, 100%);
+  max-height: min(90vh, 720px);
+  overflow: auto;
+  border-radius: var(--radius-lg);
+  background: var(--surface-strong);
+  border: 1px solid var(--line);
+  box-shadow: var(--shadow);
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 20px 20px 0;
+}
+
+.modal-header h3 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 1.35rem;
+}
+
+.modal-close {
+  border: 0;
+  background: transparent;
+  font-size: 1.75rem;
+  line-height: 1;
+  cursor: pointer;
+  color: var(--muted);
+  padding: 4px 8px;
+  border-radius: var(--radius-sm);
+}
+
+.modal-close:hover {
+  color: var(--ink);
+  background: rgba(29, 92, 99, 0.1);
+}
+
+.crud-form {
+  display: grid;
+  gap: 14px;
+  padding: 16px 20px 24px;
+}
+
+.crud-form label {
+  display: grid;
+  gap: 8px;
+}
+
+.crud-form-error {
+  margin: 0;
+  font-size: 0.95rem;
+  color: #8f2f20;
+}
+
+.crud-type-fields {
+  display: grid;
+  gap: 14px;
+}
+
 .detail-pills,
 .genre-chip-row,
 .credit-list {
@@ -552,6 +700,10 @@ button:focus {
 
   .button-row,
   .detail-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .detail-rating-box .rating-row {
     grid-template-columns: 1fr;
   }
 }

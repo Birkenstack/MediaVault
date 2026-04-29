@@ -92,6 +92,15 @@
               </select>
             </label>
 
+            <label>
+              <span>Results Per Page</span>
+              <select id="limit-select" name="limit">
+                <option value="12">12</option>
+                <option value="24" selected>24</option>
+                <option value="48">48</option>
+              </select>
+            </label>
+
             <div class="button-row">
               <button type="submit" class="button primary">Apply Filters</button>
               <button type="button" id="reset-button" class="button secondary">Reset</button>
@@ -112,6 +121,11 @@
             <div id="loading-state" class="status-message">Loading data from the API...</div>
             <div id="error-state" class="status-message error hidden"></div>
             <div id="media-grid" class="media-grid"></div>
+            <div class="pagination-row">
+              <button id="prev-page-button" class="button secondary compact" type="button">Previous</button>
+              <p id="page-summary" class="results-summary">Page 1 of 1</p>
+              <button id="next-page-button" class="button secondary compact" type="button">Next</button>
+            </div>
           </section>
 
           <section class="panel contributors-panel">
@@ -123,6 +137,16 @@
               <button id="refresh-contributors" class="button secondary compact" type="button">Refresh</button>
             </div>
             <div id="contributors-list" class="contributors-list"></div>
+          </section>
+
+          <section class="panel contributors-panel">
+            <div class="panel-header split">
+              <div>
+                <p class="panel-kicker">Saved List</p>
+                <h2>Your Favorites</h2>
+              </div>
+            </div>
+            <div id="favorites-list" class="contributors-list"></div>
           </section>
         </section>
 
@@ -158,6 +182,9 @@
           </div>
         </div>
         <button class="button primary full-width view-details" type="button">View Details</button>
+        <button class="favorite-star-button" type="button" aria-label="Toggle favorite" title="Toggle favorite">
+          <span class="star-glyph" aria-hidden="true">☆</span>
+        </button>
       </article>
     </template>
 

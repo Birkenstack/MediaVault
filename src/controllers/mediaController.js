@@ -21,18 +21,17 @@ const allowedSortColumns = {
   audience_score: 'm.average_audience_score'
 };
 
-async function listMedia(req, res) {
-  const type = req.query.type;
-  const genre = req.query.genre;
-  const contributor = req.query.contributor;
-  const search = req.query.search;
-  const minCriticScore = req.query.minCriticScore;
-  const minAudienceScore = req.query.minAudienceScore;
-  const sortBy = req.query.sortBy || 'release_date';
-  const sortOrder = req.query.sortOrder || 'desc';
-  const limit = req.query.limit;
-  const offset = req.query.offset;
+function parseUserId(req) {
+  return parsePositiveInt(req.query.userId || (req.body && req.body.userId), 1);
+}
 
+function buildMediaFilters(query) {
+  const type = query.type;
+  const genre = query.genre;
+  const contributor = query.contributor;
+  const search = query.search;
+  const minCriticScore = query.minCriticScore;
+  const minAudienceScore = query.minAudienceScore;
   const whereClauses = [];
   const params = [];
 
@@ -42,7 +41,6 @@ async function listMedia(req, res) {
   }
 
   const genres = Array.isArray(genre) ? genre : (genre ? [genre] : []);
-
   if (genres.length > 0) {
     whereClauses.push(
       'g.genre_name IN (' + genres.map(() => '?').join(',') + ')'
@@ -70,11 +68,35 @@ async function listMedia(req, res) {
     params.push(Number(minAudienceScore));
   }
 
-  const whereSql = whereClauses.length > 0 ? 'WHERE ' + whereClauses.join(' AND ') : '';
+  return {
+    whereSql: whereClauses.length > 0 ? 'WHERE ' + whereClauses.join(' AND ') : '',
+    params,
+    filters: {
+      type: type || null,
+      genre: genre || null,
+      contributor: contributor || null,
+      search: search || null,
+      minCriticScore: minCriticScore || null,
+      minAudienceScore: minAudienceScore || null
+    }
+  };
+}
+
+async function listMedia(req, res) {
+  const sortBy = req.query.sortBy || 'release_date';
+  const sortOrder = req.query.sortOrder || 'desc';
+  const limit = req.query.limit;
+  const offset = req.query.offset;
+  const page = req.query.page;
+  const safePage = parsePositiveInt(page, 1);
+  const userId = parseUserId(req);
+  const filterData = buildMediaFilters(req.query);
+  const whereSql = filterData.whereSql;
+  const params = filterData.params;
   const orderColumn = allowedSortColumns[sortBy] || allowedSortColumns.release_date;
   const orderDirection = String(sortOrder).toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
   const safeLimit = parsePositiveInt(limit, 20);
-  const safeOffset = parseNonNegativeInt(offset, 0);
+  const safeOffset = parseNonNegativeInt(offset, (safePage - 1) * safeLimit);
 
   const sql = [
     'SELECT',
@@ -90,6 +112,7 @@ async function listMedia(req, res) {
     '  tv.total_seasons,',
     '  tv.total_episodes,',
     '  tv.current_status,',
+    '  MAX(CASE WHEN uf.user_id IS NULL THEN 0 ELSE 1 END) AS is_favorited,',
     "  GROUP_CONCAT(DISTINCT g.genre_name ORDER BY g.genre_name SEPARATOR ', ') AS genres",
     'FROM media AS m',
     'LEFT JOIN movie AS mv ON mv.media_id = m.media_id',
@@ -98,6 +121,7 @@ async function listMedia(req, res) {
     'LEFT JOIN genres AS g ON g.genre_id = mg.genre_id',
     'LEFT JOIN media_contributor_credit AS mcc ON mcc.media_id = m.media_id',
     'LEFT JOIN contributors AS c ON c.contributor_id = mcc.contributor_id',
+    'LEFT JOIN user_favorite AS uf ON uf.media_id = m.media_id AND uf.user_id = ?',
     whereSql,
     'GROUP BY',
     '  m.media_id,',
@@ -116,20 +140,34 @@ async function listMedia(req, res) {
     '\nORDER BY ' + orderColumn + ' ' + orderDirection + ', m.title ASC' +
     '\nLIMIT ? OFFSET ?;';
 
-  const [rows] = await pool.query(sql, params.concat([safeLimit, safeOffset]));
+  const countSql = [
+    'SELECT COUNT(DISTINCT m.media_id) AS total',
+    'FROM media AS m',
+    'LEFT JOIN media_genre AS mg ON mg.media_id = m.media_id',
+    'LEFT JOIN genres AS g ON g.genre_id = mg.genre_id',
+    'LEFT JOIN media_contributor_credit AS mcc ON mcc.media_id = m.media_id',
+    'LEFT JOIN contributors AS c ON c.contributor_id = mcc.contributor_id',
+    whereSql
+  ].filter(Boolean).join('\n') + ';';
+
+  const [[countRow], [rows]] = await Promise.all([
+    pool.query(countSql, params),
+    pool.query(sql, [userId].concat(params, [safeLimit, safeOffset]))
+  ]);
+  const total = Number(countRow.total || 0);
+  const currentPage = Math.floor(safeOffset / safeLimit) + 1;
+  const totalPages = total === 0 ? 0 : Math.ceil(total / safeLimit);
 
   res.json({
-    filters: {
-      type: type || null,
-      genre: genre || null,
-      contributor: contributor || null,
-      search: search || null,
-      minCriticScore: minCriticScore || null,
-      minAudienceScore: minAudienceScore || null
-    },
+    filters: filterData.filters,
     pagination: {
       limit: safeLimit,
-      offset: safeOffset
+      offset: safeOffset,
+      page: currentPage,
+      total,
+      totalPages,
+      hasNextPage: totalPages > 0 && currentPage < totalPages,
+      hasPreviousPage: currentPage > 1
     },
     data: rows
   });
@@ -137,6 +175,7 @@ async function listMedia(req, res) {
 
 async function getMediaById(req, res) {
   const mediaId = Number.parseInt(req.params.id, 10);
+  const userId = parseUserId(req);
 
   if (!Number.isInteger(mediaId) || mediaId <= 0) {
     return res.status(400).json({ error: 'Invalid media id.' });
@@ -153,6 +192,7 @@ async function getMediaById(req, res) {
     '  m.age_certification,',
     '  m.average_critic_score,',
     '  m.average_audience_score,',
+    '  CASE WHEN uf.user_id IS NULL THEN 0 ELSE 1 END AS is_favorited,',
     '  mv.runtime_minutes,',
     '  mv.box_office_usd,',
     '  tv.total_seasons,',
@@ -162,10 +202,11 @@ async function getMediaById(req, res) {
     'FROM media AS m',
     'LEFT JOIN movie AS mv ON mv.media_id = m.media_id',
     'LEFT JOIN tv_show AS tv ON tv.media_id = m.media_id',
+    'LEFT JOIN user_favorite AS uf ON uf.media_id = m.media_id AND uf.user_id = ?',
     'WHERE m.media_id = ?;'
   ].join('\n');
 
-  const [mediaRows] = await pool.query(mediaSql, [mediaId]);
+  const [mediaRows] = await pool.query(mediaSql, [userId, mediaId]);
 
   if (mediaRows.length === 0) {
     return res.status(404).json({ error: 'Media not found.' });
@@ -208,7 +249,71 @@ async function getMediaById(req, res) {
   });
 }
 
+async function listFavorites(req, res) {
+  const userId = parseUserId(req);
+  const [rows] = await pool.query(
+    'SELECT ' +
+      'm.media_id, m.title, m.media_type, m.release_date, m.average_critic_score, m.average_audience_score, uf.favorited_at ' +
+      'FROM user_favorite AS uf ' +
+      'JOIN media AS m ON m.media_id = uf.media_id ' +
+      'WHERE uf.user_id = ? ' +
+      'ORDER BY uf.favorited_at DESC, m.title ASC;',
+    [userId]
+  );
+
+  return res.json({
+    data: rows
+  });
+}
+
+async function addFavorite(req, res) {
+  const mediaId = Number.parseInt(req.params.id, 10);
+  const userId = parseUserId(req);
+
+  if (!Number.isInteger(mediaId) || mediaId <= 0) {
+    return res.status(400).json({ error: 'Invalid media id.' });
+  }
+
+  await pool.query(
+    'INSERT IGNORE INTO user_favorite (user_id, media_id) VALUES (?, ?);',
+    [userId, mediaId]
+  );
+
+  return res.status(201).json({
+    data: {
+      user_id: userId,
+      media_id: mediaId,
+      is_favorited: true
+    }
+  });
+}
+
+async function removeFavorite(req, res) {
+  const mediaId = Number.parseInt(req.params.id, 10);
+  const userId = parseUserId(req);
+
+  if (!Number.isInteger(mediaId) || mediaId <= 0) {
+    return res.status(400).json({ error: 'Invalid media id.' });
+  }
+
+  await pool.query(
+    'DELETE FROM user_favorite WHERE user_id = ? AND media_id = ?;',
+    [userId, mediaId]
+  );
+
+  return res.json({
+    data: {
+      user_id: userId,
+      media_id: mediaId,
+      is_favorited: false
+    }
+  });
+}
+
 module.exports = {
   listMedia,
-  getMediaById
+  getMediaById,
+  listFavorites,
+  addFavorite,
+  removeFavorite
 };

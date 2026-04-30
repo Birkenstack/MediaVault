@@ -411,7 +411,7 @@ function renderMediaDetail(item) {
 
   const subtypeMeta = item.media_type === 'MOVIE'
     ? '<div class="detail-metric"><span class="score-label">Runtime</span><strong>' + escapeHtml(item.runtime_minutes || 'N/A') + ' min</strong></div>' +
-      '<div class="detail-metric"><span class="score-label">Box Office</span><strong>' + escapeHtml(item.box_office_usd ? '$' + Number(item.box_office_usd).toLocaleString() : 'N/A') + '</strong></div>'
+      '<div class="detail-metric detail-metric-wide"><span class="score-label">Box Office</span><strong class="detail-metric-money">' + escapeHtml(item.box_office_usd ? '$' + Number(item.box_office_usd).toLocaleString() : 'N/A') + '</strong></div>'
     : '<div class="detail-metric"><span class="score-label">Seasons</span><strong>' + escapeHtml(item.total_seasons || 'N/A') + '</strong></div>' +
       '<div class="detail-metric"><span class="score-label">Episodes</span><strong>' + escapeHtml(item.total_episodes || 'N/A') + '</strong></div>';
 

@@ -648,6 +648,17 @@ textarea {
   margin-top: 6px;
   font-family: var(--font-display);
   font-size: 1.25rem;
+  line-height: 1.2;
+  overflow-wrap: normal;
+}
+
+.detail-metric-wide {
+  grid-column: 1 / -1;
+}
+
+.detail-metric-money {
+  font-size: 1.1rem;
+  white-space: nowrap;
 }
 
 .status-message {
@@ -705,5 +716,14 @@ textarea {
 
   .detail-rating-box .rating-row {
     grid-template-columns: 1fr;
+  }
+
+  .detail-metric-wide {
+    grid-column: auto;
+  }
+
+  .detail-metric-money {
+    white-space: normal;
+    overflow-wrap: anywhere;
   }
 }

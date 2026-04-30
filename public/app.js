@@ -337,10 +337,17 @@ function renderMediaCards() {
   });
 
   elements.mediaGrid.appendChild(fragment);
-  const startRow = state.pagination.total === 0 ? 0 : ((state.page - 1) * Number(document.getElementById('limit-select').value)) + 1;
-  const endRow = Math.min(startRow + state.media.length - 1, state.pagination.total);
-  elements.resultsSummary.textContent = 'Showing ' + startRow + '-' + endRow + ' of ' + state.pagination.total;
-  elements.statMediaCount.textContent = String(state.pagination.total);
+  const total = Number(state.pagination.total || 0);
+  const pageSize = Number(document.getElementById('limit-select').value);
+  const startRow = total === 0 ? 0 : ((state.page - 1) * pageSize) + 1;
+  const endRow = Math.min(startRow + state.media.length - 1, total);
+
+  if (total === 0 || startRow === 0 || endRow === 0) {
+    elements.resultsSummary.textContent = 'No Results';
+  } else {
+    elements.resultsSummary.textContent = 'Showing ' + startRow + '-' + endRow + ' of ' + total;
+  }
+  elements.statMediaCount.textContent = String(total);
   elements.pageSummary.textContent = 'Page ' + state.page + ' of ' + state.pagination.totalPages;
   elements.prevPageButton.disabled = !state.pagination.hasPreviousPage;
   elements.nextPageButton.disabled = !state.pagination.hasNextPage;
@@ -440,15 +447,15 @@ function renderMediaDetail(item) {
     '<section class="detail-section"><p class="score-label">Genres</p><div class="genre-chip-row">' + (genres || '<span class="detail-meta">No genres</span>') + '</div></section>' +
     '<section class="detail-section"><p class="score-label">Contributor Credits</p><div class="credit-list">' + (contributors || '<span class="detail-meta">No credits</span>') + '</div></section>' +
     '<div class="detail-rating-box">' +
-      '<p class="score-label">Your rating</p>' +
+      '<p class="score-label">Your Rating</p>' +
       '<form id="rating-form">' +
         '<div class="rating-row">' +
           '<label><span>Score (0–10)</span><input id="rating-value" name="ratingValue" type="number" min="0" max="10" step="0.1" required placeholder="e.g. 8.5" /></label>' +
-          '<label><span>Review (optional)</span><textarea id="rating-review" name="reviewText" rows="2" placeholder="Short note"></textarea></label>' +
+          '<label><span>Review (Optional)</span><textarea id="rating-review" name="reviewText" rows="2" placeholder="Short Note"></textarea></label>' +
         '</div>' +
         '<div class="button-row">' +
-          '<button type="submit" class="button primary">Save rating</button>' +
-          '<button type="button" id="rating-remove" class="button secondary">Remove my rating</button>' +
+          '<button type="submit" class="button primary">Save Rating</button>' +
+          '<button type="button" id="rating-remove" class="button secondary">Remove My Rating</button>' +
         '</div>' +
       '</form>' +
     '</div>';

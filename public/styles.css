@@ -145,6 +145,12 @@ select {
   align-self: start;
 }
 
+.detail-panel {
+  max-height: calc(100vh - 40px);
+  overflow: auto;
+  padding-bottom: 24px;
+}
+
 .panel-header {
   padding: 24px 24px 12px;
 }
@@ -318,8 +324,7 @@ button:focus {
 }
 
 .results-panel,
-.contributors-panel,
-.detail-panel {
+.contributors-panel {
   overflow: hidden;
 }
 
@@ -472,6 +477,7 @@ button:focus {
 .detail-content {
   display: grid;
   gap: 16px;
+  padding-bottom: 32px;
 }
 
 .detail-title {
